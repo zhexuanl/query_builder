@@ -6,6 +6,20 @@ from domain.interfaces.schema_reflector import ISchemaReflector
 
 from .sqlalchemy_catalog_view import SqlAlchemyCatalogView
 
+_CONNECT_TIMEOUT_SECONDS = 10
+
+# Driver-specific kwarg name for connection timeout.
+_TIMEOUT_CONNECT_ARGS: dict[str, dict[str, int]] = {
+    "postgresql": {"connect_timeout": _CONNECT_TIMEOUT_SECONDS},
+    "mssql": {"timeout": _CONNECT_TIMEOUT_SECONDS},
+}
+
+
+def _connect_args(url: str) -> dict[str, int]:
+    dialect_name = sa.engine.make_url(url).get_dialect().name
+    return _TIMEOUT_CONNECT_ARGS.get(dialect_name, {})
+
+
 class SqlAlchemySchemaReflector(ISchemaReflector):
     """Reflects table and column schema from a live source database.
 
@@ -39,7 +53,7 @@ class SqlAlchemySchemaReflector(ISchemaReflector):
                 are invalid, or a requested table does not exist in the source.
         """
         safe_url = sa.engine.make_url(url).render_as_string(hide_password=True)
-        engine = sa.create_engine(url)
+        engine = sa.create_engine(url, connect_args=_connect_args(url))
         try:
             meta = sa.MetaData()
             with engine.connect() as conn:
