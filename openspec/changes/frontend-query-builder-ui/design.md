@@ -22,6 +22,20 @@ The shell still needs to look like the real governed query workflow. That means 
 - Connection, dataset, or auth flows
 - Fake persistence or placeholder backend adapters
 
+## Decision Gate Outcome
+
+The hard-to-reverse choices for this milestone are already decided and locked for the shell pass.
+
+- Package surface:
+  Outcome: configure the shell library surface as `@query-builder/ui`, with only `QueryBuilderComponent` and `QUERY_BUILDER_PT` exported in this milestone.
+  Rejected: exporting secondary surfaces or config tokens before they exist.
+- Theme contract:
+  Outcome: PrimeNG in unstyled mode with Tailwind utilities and `QUERY_BUILDER_PT` as the visual contract.
+  Rejected: PrimeNG theme CSS, Material-style defaults, or a shell that delays the theme system to a later milestone.
+- Shell state model:
+  Outcome: local Angular signals only for shell interaction state.
+  Rejected: shared service state, RxJS draft orchestration, or any API-backed state model in this milestone.
+
 ## Design Decisions
 
 ### Decision 1 — Scope is shell-only
@@ -66,35 +80,25 @@ The builder rail shows the real business-language sections in order so the shell
 
 PrimeNG runs in unstyled mode. Visual styling comes from Tailwind utilities, CSS tokens, and the exported `QUERY_BUILDER_PT` pass-through theme object. This milestone establishes the design system contract without inventing backend behavior.
 
-## Component Structure
+## Design Boundaries
 
-```text
-frontend/
-  projects/
-    query-builder-ui/
-      src/lib/
-        query-builder/
-          query-builder.component.ts
-          builder-panel.component.ts
-          builder-section.component.ts
-          preview-panel.component.ts
-          preview-data-shell.component.ts
-          preview-sql-shell.component.ts
-        theme/
-          query-builder-pt.ts
-          query-builder.tokens.css
-      src/public-api.ts
-    demo/
-```
+The design contract stays at invariant level:
+
+- one exported shell component, `<qb-query-builder>`
+- one exported theme object, `QUERY_BUILDER_PT`
+- split-panel layout with a builder rail and preview pane
+- business-language sections rendered in order
+- local shell interaction state only
+- demo app present for local verification, but not part of the public library API
 
 ## State Model
 
-Use local signals in `QueryBuilderComponent` and shell subcomponents only.
+Shell interaction state stays local to the shell component tree.
 
 - `expandedSections`
 - `previewMode`
 
-That is enough for this milestone. No service or persistence boundary is justified yet.
+That is enough for this milestone. No shared service, external store, or API-backed state boundary is justified in this milestone.
 
 ## Layout Rules
 
@@ -125,3 +129,19 @@ Required verification for the implementation milestone:
 2. `ng build demo`
 3. `ng serve demo`
 4. Manual browser verification of split layout, section expansion behavior, preview state switching, and theme application
+
+## Risks / Trade-offs
+
+- Locking `@query-builder/ui` now keeps the shell honest, but it does commit the milestone to a library-first surface before richer features land.
+- PrimeNG unstyled mode plus Tailwind gives stronger control over the visual result, but it raises the implementation burden versus accepting stock component theming.
+- Local signals keep the shell clean and reversible for this phase, but later milestones will need an explicit state boundary when real QuerySpec editing arrives.
+
+## Migration Plan
+
+- This milestone creates the Angular workspace, shell component surface, and theme contract only.
+- Later milestones can add richer shell internals without changing the exported shell tag.
+- Service state, API wiring, and secondary exported surfaces remain deferred until their own milestone artifacts make those boundaries explicit.
+
+## Open Questions
+
+- Should a later milestone introduce a dedicated shell state service, or can real QuerySpec editing still stay component-local after the shell is implemented?

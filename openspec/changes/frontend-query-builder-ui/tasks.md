@@ -21,4 +21,5 @@
 ## 5. Demo And Verification
 
 - [ ] 5.1 Build the demo app to render `<qb-query-builder>` and exercise section expansion plus preview state switching
-- [ ] 5.2 Verify `ng build query-builder-ui`, `ng build demo`, `ng serve demo`, and manual browser checks for shell layout and theme behavior
+- [ ] 5.2 Run automated verification: `ng build query-builder-ui` and `ng build demo`
+- [ ] 5.3 Run local verification: `ng serve demo` plus manual browser checks for shell layout, section expansion, preview state switching, and theme behavior
