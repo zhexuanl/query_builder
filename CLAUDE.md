@@ -63,3 +63,69 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+
+---
+
+## 5. Phase-Gated Development
+
+Each milestone (M0, M1, M2 …) is a discrete shipping unit. Never blend phases.
+
+**Per-phase workflow:**
+```
+1. Implement the phase scope — nothing beyond it
+2. Run adversarial review (§6) on all changed files
+3. Fix any blockers surfaced by review
+4. Commit — message scoped to the phase, e.g. "M1: compiler spike – SQLAlchemy Core + golden tests"
+5. Proceed to next phase only after commit is clean
+```
+
+Each commit should be self-contained: tests green, no TODOs introduced, no commented-out code.
+
+---
+
+## 6. Adversarial Review (required before every phase commit)
+
+Before committing, spawn a `code-reviewer` agent or adversarial `Agent` pass over all files touched in the phase. The review must cover:
+
+**Clean Architecture violations**
+- Domain (`domain/`) importing from `adapters/` or `infrastructure/`
+- Use cases holding HTTP, ORM, or framework knowledge
+- ORM models or Pydantic validators appearing inside `domain/`
+- Ports (interfaces) referencing concrete types from adapters
+
+**Domain design anti-patterns**
+- Anemic domain model — entities with no behaviour, all logic in use cases
+- Missing invariants — value objects that allow invalid state to be constructed
+- Mutable state where frozen/immutable is correct
+- Overly broad port interfaces (one method per port is a smell)
+
+**General anti-patterns**
+- God objects / god use cases doing too many things
+- Feature envy — a class operating mostly on another class's data
+- Primitive obsession — raw strings/ints where a value object belongs
+- Speculative generality — abstractions with no second implementation
+
+**Performance**
+- N+1 query patterns in repository adapters
+- Redundant validation passes (validate once at the boundary, trust inside)
+- Unnecessary allocations in hot compilation paths
+
+If the review finds a **design-level issue** (not just a code smell) that requires choosing between two approaches, invoke the `decision-gate` skill before making the change (see §7).
+
+---
+
+## 7. Decision Gate
+
+Use the `decision-gate` skill before committing to any choice that would be **expensive to reverse**:
+
+| Trigger | Example |
+|---|---|
+| New port in `domain/interfaces/` | Adding `IQueryOptimizer` vs folding into `IQueryCompiler` |
+| QuerySpec AST shape change | Adding a new field that changes the serialised contract |
+| Cross-layer contract change | Changing `CompiledQuery` NamedTuple fields |
+| Two viable adapter implementations | SQLAlchemy Core vs SQLGlot as primary compiler |
+| Schema migration on the app DB | Altering audit or catalog tables |
+
+**Skip the decision gate for:** trivial implementation choices, style preferences, adding a method to an existing port that has only one implementation.
+
+The gate output must be recorded in a comment in the PR or plan file — not lost in chat.

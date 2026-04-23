@@ -1,18 +1,22 @@
 class QueryBuilderError(Exception):
-    """Base for all domain errors."""
+    """Base class for all domain errors in the query builder."""
 
 
 class PolicyViolation(QueryBuilderError):
-    """A query spec violated an entitlement or governance rule."""
+    """Raised when a ``QuerySpec`` violates an entitlement or governance rule.
+
+    Examples include accessing an un-approved table, referencing a sensitive
+    column without the required permission, or using a disallowed join path.
+    """
 
 
 class CatalogMiss(QueryBuilderError):
-    """A referenced table, column, or join edge was not found in the catalog."""
+    """Raised when a referenced table, column, or join edge is absent from the catalog."""
 
 
 class SourceConnectionError(QueryBuilderError):
-    """Could not reach or authenticate against the source DB."""
+    """Raised when the platform cannot reach or authenticate against a source database."""
 
 
 class CompilationError(QueryBuilderError):
-    """The query spec could not be compiled to SQL."""
+    """Raised when a ``QuerySpec`` cannot be compiled to valid SQL."""
