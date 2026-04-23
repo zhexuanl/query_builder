@@ -20,3 +20,7 @@ class SourceConnectionError(QueryBuilderError):
 
 class CompilationError(QueryBuilderError):
     """Raised when a ``QuerySpec`` cannot be compiled to valid SQL."""
+
+
+class DatasetNotFound(QueryBuilderError):
+    """Raised when a ``DatasetDefinition`` with the given ID does not exist."""

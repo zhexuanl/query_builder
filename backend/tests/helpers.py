@@ -1,5 +1,27 @@
 import re
 
+from domain.entities.query_spec import QuerySpec
+from domain.value_objects.query_parts import JoinDef, SelectField
+from domain.value_objects.refs import ColumnRef
+
+
+def simple_spec(
+    *,
+    connection_id: str = "conn-1",
+    alias: str = "u",
+    table: str = "users",
+    columns: list[str] | None = None,
+) -> QuerySpec:
+    """Build a minimal valid ``QuerySpec`` for testing."""
+    if columns is None:
+        columns = ["id"]
+    select = tuple(
+        SelectField(kind="column", source=ColumnRef(alias=alias, name=col), label=col)
+        for col in columns
+    )
+    source = JoinDef(type="inner", table=table, alias=alias, on=())
+    return QuerySpec(connection_id=connection_id, source=source, select=select)
+
 
 def normalize_sql(sql: str) -> str:
     """Collapse whitespace in a SQL string for stable text comparisons.

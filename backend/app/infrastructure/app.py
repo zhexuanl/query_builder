@@ -11,8 +11,12 @@ from adapters.policy.default_query_policy import DefaultQueryPolicy
 from infrastructure.catalog.in_memory_catalog_repository import InMemoryCatalogRepository
 from infrastructure.connection.cipher_backed_connection_repository import CipherBackedConnectionRepository
 from infrastructure.api.routes.queries import make_queries_router
+from infrastructure.api.routes.datasets import make_datasets_router
+from infrastructure.dataset.in_memory_dataset_repository import InMemoryDatasetRepository
 from use_cases.compile_query import CompileQueryUseCase
 from use_cases.execute_query import ExecuteQueryUseCase
+from use_cases.get_dataset import GetDatasetUseCase
+from use_cases.save_dataset import SaveDatasetUseCase
 
 
 def create_app(config: dict) -> FastAPI:
@@ -25,7 +29,7 @@ def create_app(config: dict) -> FastAPI:
             to the ``FERNET_KEY`` environment variable).
 
     Returns:
-        A ``FastAPI`` instance with ``POST /queries/execute`` registered.
+        A ``FastAPI`` instance with all routes registered.
     """
     connections: dict[str, str] = config.get("connections", {})
     raw_key: str | None = config.get("fernet_key") or os.environ.get("FERNET_KEY")
@@ -48,6 +52,11 @@ def create_app(config: dict) -> FastAPI:
     audit_log = JsonStdoutAuditLog()
     execute_uc = ExecuteQueryUseCase(compile_uc, conn_repo, executor, audit_log)
 
+    dataset_repo = InMemoryDatasetRepository()
+    save_dataset_uc = SaveDatasetUseCase(compile_uc, dataset_repo)
+    get_dataset_uc = GetDatasetUseCase(dataset_repo)
+
     app = FastAPI(title="Query Builder API")
     app.include_router(make_queries_router(execute_uc))
+    app.include_router(make_datasets_router(save_dataset_uc, get_dataset_uc, dataset_repo))
     return app

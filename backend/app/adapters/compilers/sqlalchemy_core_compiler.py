@@ -1,7 +1,10 @@
+import re
 from typing import Any
 
 import sqlalchemy as sa
+import sqlglot
 from sqlalchemy.dialects import mssql, postgresql
+from sqlglot.errors import SqlglotError
 
 from domain.entities.query_spec import QuerySpec
 from domain.errors import CatalogMiss, CompilationError
@@ -17,6 +20,32 @@ _SA_DIALECTS: dict[Dialect, Any] = {
     Dialect.mssql: mssql.dialect(),
 }
 
+_SQLGLOT_DIALECTS: dict[Dialect, str] = {
+    Dialect.postgres: "postgres",
+    Dialect.mssql: "tsql",
+}
+
+# SQLAlchemy with render_postcompile=True emits %(name)s-style named placeholders.
+# Substitute them with a numeric literal so SQLGlot sees parseable SQL.
+_BIND_PARAM_RE = re.compile(r"%\(\w+\)s")
+
+
+def _sqlglot_qualify(sql: str, dialect: Dialect) -> None:
+    """Parse ``sql`` with SQLGlot and raise ``CompilationError`` on failure.
+
+    Bound parameter placeholders are substituted with a literal before parsing
+    so that SQLGlot sees valid SQL syntax. The original SQL is not modified.
+
+    Raises:
+        CompilationError: If SQLGlot cannot parse the SQL string.
+    """
+    parseable = _BIND_PARAM_RE.sub("1", sql)
+    sqlglot_dialect = _SQLGLOT_DIALECTS[dialect]
+    try:
+        sqlglot.parse_one(parseable, dialect=sqlglot_dialect, error_level=sqlglot.ErrorLevel.RAISE)
+    except SqlglotError as exc:
+        raise CompilationError(f"SQLGlot qualification failed: {exc}") from exc
+
 
 class SqlAlchemyCoreCompiler(IQueryCompiler):
     """Translates a ``QuerySpec`` to dialect SQL using SQLAlchemy Core.
@@ -24,7 +53,15 @@ class SqlAlchemyCoreCompiler(IQueryCompiler):
     Uses ``CatalogView`` to resolve table aliases and columns into SQLAlchemy
     expression objects.  Wraps any ``CatalogMiss`` in ``CompilationError`` so
     callers see a single error type for all compilation failures.
+
+    Args:
+        enable_sqlglot_qualify: When ``True``, the emitted SQL is passed
+            through SQLGlot's parser after each ``compile()`` call.  Parse
+            failures raise ``CompilationError``.  Disabled by default.
     """
+
+    def __init__(self, enable_sqlglot_qualify: bool = False) -> None:
+        self._enable_sqlglot_qualify = enable_sqlglot_qualify
 
     def compile(
         self,
@@ -48,9 +85,12 @@ class SqlAlchemyCoreCompiler(IQueryCompiler):
                 internal compilation failure.
         """
         try:
-            return self._compile(spec, catalog, dialect)
+            result = self._compile(spec, catalog, dialect)
         except CatalogMiss as exc:
             raise CompilationError(str(exc)) from exc
+        if self._enable_sqlglot_qualify:
+            _sqlglot_qualify(result.sql, dialect)
+        return result
 
     def _compile(
         self,
