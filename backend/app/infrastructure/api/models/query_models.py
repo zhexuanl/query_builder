@@ -41,10 +41,18 @@ class _SortDefModel(BaseModel):
     direction: Literal["asc", "desc"] = "asc"
 
 
+class ErrorResponse(BaseModel):
+    """Structured error response body."""
+
+    error_code: str
+    detail: str | None = None
+
+
 class QuerySpecRequest(BaseModel):
     """HTTP request body for POST /queries/execute."""
 
     connection_id: str
+    caller_id: str
     source: _JoinDefModel
     select: list[_SelectFieldModel]
     joins: list[_JoinDefModel] = []

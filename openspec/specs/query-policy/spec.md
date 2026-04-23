@@ -33,8 +33,8 @@ The `IQueryPolicy` port SHALL expose a single `validate(spec, catalog)` method. 
 
 ---
 
-### Requirement: Table allowlist policy enforces per-connection data entitlements
-`TableAllowlistPolicy` SHALL reject any `QuerySpec` that references a table not in the approved set for its `connection_id`. If `connection_id` is absent from the allowlist mapping, all tables are permitted (open-by-default for v1).
+### Requirement: Table allowlist policy enforces per-connection data entitlements (closed-by-default)
+`TableAllowlistPolicy` SHALL reject any `QuerySpec` that references a table not in the approved set for its `connection_id`. If `connection_id` is absent from the allowlist mapping, `PolicyViolation` MUST be raised (closed-by-default). The open-by-default behaviour is removed.
 
 #### Scenario: Unapproved source table rejected
 - **WHEN** `spec.source.table` is not in the allowlist for `spec.connection_id`
@@ -48,9 +48,9 @@ The `IQueryPolicy` port SHALL expose a single `validate(spec, catalog)` method. 
 - **WHEN** every table in `spec.source` and `spec.joins` is in the allowlist
 - **THEN** `validate()` returns `None` without raising
 
-#### Scenario: Unknown connection_id — open by default
+#### Scenario: Unknown connection_id — closed by default
 - **WHEN** `spec.connection_id` has no entry in the allowlist mapping
-- **THEN** `validate()` returns `None` (all tables permitted)
+- **THEN** `PolicyViolation` is raised with a message identifying the unknown connection
 
 ---
 

@@ -12,6 +12,7 @@ from use_cases.execute_query import ExecuteQueryUseCase
 
 _VALID_BODY = {
     "connection_id": "conn-1",
+    "caller_id": "test-user",
     "source": {"type": "inner", "table": "users", "alias": "u", "on": []},
     "select": [{"kind": "column", "source": {"alias": "u", "name": "id"}, "label": "id"}],
     "dialect": "postgres",
@@ -50,38 +51,54 @@ def test_empty_result_returns_200_empty():
     assert data["row_count"] == 0
 
 
-def test_policy_violation_returns_422():
+def test_policy_violation_returns_422_with_error_code():
     client = _make_client(side_effect=PolicyViolation("too many joins"))
     resp = client.post("/queries/execute", json=_VALID_BODY)
     assert resp.status_code == 422
-    assert "too many joins" in resp.json()["detail"]
+    data = resp.json()
+    assert data["error_code"] == "POLICY_VIOLATION"
+    assert "too many joins" in data["detail"]
 
 
-def test_compilation_error_returns_422():
+def test_compilation_error_returns_422_with_error_code():
     client = _make_client(side_effect=CompilationError("bad spec"))
     resp = client.post("/queries/execute", json=_VALID_BODY)
     assert resp.status_code == 422
-    assert "bad spec" in resp.json()["detail"]
+    data = resp.json()
+    assert data["error_code"] == "COMPILATION_ERROR"
+    assert "bad spec" in data["detail"]
 
 
-def test_catalog_miss_returns_422():
+def test_catalog_miss_returns_422_with_error_code():
     client = _make_client(side_effect=CatalogMiss("unknown table"))
     resp = client.post("/queries/execute", json=_VALID_BODY)
     assert resp.status_code == 422
-    assert "unknown table" in resp.json()["detail"]
+    data = resp.json()
+    assert data["error_code"] == "CATALOG_MISS"
+    assert "unknown table" in data["detail"]
 
 
-def test_source_connection_error_returns_502():
+def test_source_connection_error_returns_502_with_error_code():
     client = _make_client(side_effect=SourceConnectionError("db unreachable"))
     resp = client.post("/queries/execute", json=_VALID_BODY)
     assert resp.status_code == 502
-    assert resp.json()["detail"] == "Source database unavailable"
+    data = resp.json()
+    assert data["error_code"] == "SOURCE_UNAVAILABLE"
+    assert data["detail"] is None
 
 
 def test_missing_connection_id_returns_422():
     client = _make_client()
     body = {**_VALID_BODY}
     del body["connection_id"]
+    resp = client.post("/queries/execute", json=body)
+    assert resp.status_code == 422
+
+
+def test_missing_caller_id_returns_422():
+    client = _make_client()
+    body = {**_VALID_BODY}
+    del body["caller_id"]
     resp = client.post("/queries/execute", json=body)
     assert resp.status_code == 422
 

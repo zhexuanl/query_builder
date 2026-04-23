@@ -15,6 +15,8 @@ from domain.interfaces.query_compiler import CompiledQuery
 from domain.value_objects.dialect import Dialect
 from domain.value_objects.query_parts import JoinDef, SelectField
 from domain.value_objects.refs import ColumnRef
+from domain.interfaces.audit_log import IAuditLog
+from tests.fakes.fake_audit_log import FakeAuditLog
 from tests.fakes.fake_query_executor import FakeQueryExecutor
 from use_cases.compile_query import CompileQueryUseCase
 from use_cases.execute_query import ExecuteQueryUseCase, _MAX_RESULT_ROWS
@@ -44,41 +46,50 @@ def _make_use_case(rows=None, compile_side_effect=None, url="postgresql://localh
     conn_repo.get_url.return_value = url
 
     executor = FakeQueryExecutor(rows or [])
-    return ExecuteQueryUseCase(compile_uc, conn_repo, executor), compile_uc, conn_repo, executor
+    audit_log = FakeAuditLog()
+    uc = ExecuteQueryUseCase(compile_uc, conn_repo, executor, audit_log)
+    return uc, compile_uc, conn_repo, executor, audit_log
 
 
 def test_successful_execute_returns_rows():
     rows = [{"id": 1}, {"id": 2}]
-    uc, _, _, _ = _make_use_case(rows=rows)
-    result = uc.execute(_spec(), Dialect.postgres)
+    uc, _, _, _, audit_log = _make_use_case(rows=rows)
+    result = uc.execute(_spec(), Dialect.postgres, caller_id="alice")
     assert result == rows
+    assert len(audit_log.events) == 1
+    assert audit_log.events[0].outcome == "success"
+    assert audit_log.events[0].row_count == 2
+    assert audit_log.events[0].caller_id == "alice"
 
 
 def test_policy_violation_from_compile_propagates_executor_not_called():
-    uc, compile_uc, _, executor = _make_use_case(
+    uc, compile_uc, _, executor, audit_log = _make_use_case(
         compile_side_effect=PolicyViolation("too many joins")
     )
     with pytest.raises(PolicyViolation, match="too many joins"):
-        uc.execute(_spec(), Dialect.postgres)
+        uc.execute(_spec(), Dialect.postgres, caller_id="alice")
     assert executor.calls == []
+    assert audit_log.events[0].outcome == "policy_violation"
 
 
 def test_compilation_error_propagates_executor_not_called():
-    uc, _, _, executor = _make_use_case(
+    uc, _, _, executor, audit_log = _make_use_case(
         compile_side_effect=CompilationError("bad spec")
     )
     with pytest.raises(CompilationError):
-        uc.execute(_spec(), Dialect.postgres)
+        uc.execute(_spec(), Dialect.postgres, caller_id="alice")
     assert executor.calls == []
+    assert audit_log.events[0].outcome == "compilation_error"
 
 
 def test_catalog_miss_from_compile_propagates_executor_not_called():
-    uc, _, _, executor = _make_use_case(
+    uc, _, _, executor, audit_log = _make_use_case(
         compile_side_effect=CatalogMiss("unknown table")
     )
     with pytest.raises(CatalogMiss):
-        uc.execute(_spec(), Dialect.postgres)
+        uc.execute(_spec(), Dialect.postgres, caller_id="alice")
     assert executor.calls == []
+    assert audit_log.events[0].outcome == "catalog_miss"
 
 
 def test_catalog_miss_from_connection_repo_propagates():
@@ -87,11 +98,13 @@ def test_catalog_miss_from_connection_repo_propagates():
     conn_repo = MagicMock(spec=IConnectionRepository)
     conn_repo.get_url.side_effect = CatalogMiss("unknown connection")
     executor = FakeQueryExecutor([])
-    uc = ExecuteQueryUseCase(compile_uc, conn_repo, executor)
+    audit_log = FakeAuditLog()
+    uc = ExecuteQueryUseCase(compile_uc, conn_repo, executor, audit_log)
 
     with pytest.raises(CatalogMiss, match="unknown connection"):
-        uc.execute(_spec(), Dialect.postgres)
+        uc.execute(_spec(), Dialect.postgres, caller_id="alice")
     assert executor.calls == []
+    assert audit_log.events[0].outcome == "catalog_miss"
 
 
 def test_source_connection_error_from_executor_propagates():
@@ -103,21 +116,42 @@ def test_source_connection_error_from_executor_propagates():
     conn_repo.get_url.return_value = "postgresql://localhost/db"
     executor = MagicMock(spec=IQueryExecutor)
     executor.execute.side_effect = SourceConnectionError("db unreachable")
-    uc = ExecuteQueryUseCase(compile_uc, conn_repo, executor)
+    audit_log = FakeAuditLog()
+    uc = ExecuteQueryUseCase(compile_uc, conn_repo, executor, audit_log)
 
     with pytest.raises(SourceConnectionError, match="db unreachable"):
-        uc.execute(_spec(), Dialect.postgres)
+        uc.execute(_spec(), Dialect.postgres, caller_id="alice")
+    assert audit_log.events[0].outcome == "source_error"
 
 
 def test_row_count_exceeds_cap_raises_policy_violation():
     rows = [{"id": i} for i in range(_MAX_RESULT_ROWS + 1)]
-    uc, _, _, _ = _make_use_case(rows=rows)
+    uc, _, _, _, audit_log = _make_use_case(rows=rows)
     with pytest.raises(PolicyViolation, match=str(_MAX_RESULT_ROWS)):
-        uc.execute(_spec(), Dialect.postgres)
+        uc.execute(_spec(), Dialect.postgres, caller_id="alice")
+    assert audit_log.events[0].outcome == "row_cap_exceeded"
+    assert audit_log.events[0].row_count is None
 
 
 def test_row_count_at_cap_returns_rows():
     rows = [{"id": i} for i in range(_MAX_RESULT_ROWS)]
-    uc, _, _, _ = _make_use_case(rows=rows)
-    result = uc.execute(_spec(), Dialect.postgres)
+    uc, _, _, _, audit_log = _make_use_case(rows=rows)
+    result = uc.execute(_spec(), Dialect.postgres, caller_id="alice")
     assert len(result) == _MAX_RESULT_ROWS
+    assert audit_log.events[0].outcome == "success"
+
+
+def test_audit_log_failure_does_not_affect_result():
+    rows = [{"id": 1}]
+    compile_uc = MagicMock(spec=CompileQueryUseCase)
+    compile_uc.execute.return_value = _compiled()
+    conn_repo = MagicMock(spec=IConnectionRepository)
+    conn_repo.get_url.return_value = "postgresql://localhost/db"
+    executor = FakeQueryExecutor(rows)
+
+    broken_log = MagicMock(spec=IAuditLog)
+    broken_log.append.side_effect = RuntimeError("log broken")
+    uc = ExecuteQueryUseCase(compile_uc, conn_repo, executor, broken_log)
+
+    result = uc.execute(_spec(), Dialect.postgres, caller_id="alice")
+    assert result == rows

@@ -1,4 +1,4 @@
-## ADDED Requirements
+## MODIFIED Requirements
 
 ### Requirement: ExecuteQueryUseCase orchestrates compilation and execution
 `ExecuteQueryUseCase.execute(spec, dialect, caller_id)` SHALL call `CompileQueryUseCase.execute()` to compile the spec, resolve the `connection_url` via `IConnectionRepository`, run the compiled SQL via `IQueryExecutor`, write an `AuditEvent` via `IAuditLog`, and return the result rows. The `caller_id` parameter is mandatory and MUST be recorded in the audit event. It MUST NOT perform SQL compilation logic itself.
@@ -30,16 +30,3 @@
 #### Scenario: Audit log failure does not surface to caller
 - **WHEN** `IAuditLog.append()` raises an exception internally
 - **THEN** the exception is swallowed; the use case returns rows or re-raises the original domain error as if the audit log were working
-
----
-
-### Requirement: ExecuteQueryUseCase enforces a hard row-count cap
-The use case SHALL raise `PolicyViolation` if the number of rows returned by the executor exceeds `_MAX_RESULT_ROWS`. This check MUST occur after execution and MUST NOT require a second database round-trip.
-
-#### Scenario: Result within cap returned as-is
-- **WHEN** the executor returns N rows where N ≤ `_MAX_RESULT_ROWS`
-- **THEN** all N rows are returned to the caller
-
-#### Scenario: Result exceeding cap raises PolicyViolation
-- **WHEN** the executor returns more than `_MAX_RESULT_ROWS` rows
-- **THEN** `PolicyViolation` is raised with a message identifying the cap and the actual count

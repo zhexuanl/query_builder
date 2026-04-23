@@ -1,7 +1,7 @@
+from typing import Any
+
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
-
-from typing import Any
 
 from domain.errors import CatalogMiss, CompilationError, PolicyViolation, SourceConnectionError
 from domain.entities.query_spec import QuerySpec
@@ -10,6 +10,7 @@ from domain.value_objects.filters import FilterGroup, Predicate
 from domain.value_objects.query_parts import JoinDef, SelectField, SortDef
 from domain.value_objects.refs import ColumnRef, ParamRef, ValueRef
 from infrastructure.api.models.query_models import (
+    ErrorResponse,
     QueryResultResponse,
     QuerySpecRequest,
     _FilterGroupModel,
@@ -82,11 +83,27 @@ def make_queries_router(execute_use_case: ExecuteQueryUseCase) -> APIRouter:
         try:
             spec = _to_domain_spec(req)
             dialect = Dialect(req.dialect)
-            rows = execute_use_case.execute(spec, dialect)
+            rows = execute_use_case.execute(spec, dialect, caller_id=req.caller_id)
             return QueryResultResponse.from_rows(rows)
-        except (PolicyViolation, CompilationError, CatalogMiss) as exc:
-            return JSONResponse(status_code=422, content={"detail": str(exc)})
+        except PolicyViolation as exc:
+            return JSONResponse(
+                status_code=422,
+                content=ErrorResponse(error_code="POLICY_VIOLATION", detail=str(exc)).model_dump(),
+            )
+        except CompilationError as exc:
+            return JSONResponse(
+                status_code=422,
+                content=ErrorResponse(error_code="COMPILATION_ERROR", detail=str(exc)).model_dump(),
+            )
+        except CatalogMiss as exc:
+            return JSONResponse(
+                status_code=422,
+                content=ErrorResponse(error_code="CATALOG_MISS", detail=str(exc)).model_dump(),
+            )
         except SourceConnectionError:
-            return JSONResponse(status_code=502, content={"detail": "Source database unavailable"})
+            return JSONResponse(
+                status_code=502,
+                content=ErrorResponse(error_code="SOURCE_UNAVAILABLE").model_dump(),
+            )
 
     return router

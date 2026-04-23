@@ -69,7 +69,8 @@ def test_all_tables_approved_passes():
     policy.validate(spec, _catalog)  # must not raise
 
 
-def test_unknown_connection_id_passes():
+def test_unknown_connection_id_raises():
     policy = TableAllowlistPolicy({})  # no entry for conn-1
     spec = _spec()
-    policy.validate(spec, _catalog)  # must not raise (open by default)
+    with pytest.raises(PolicyViolation, match="No allowlist configured"):
+        policy.validate(spec, _catalog)

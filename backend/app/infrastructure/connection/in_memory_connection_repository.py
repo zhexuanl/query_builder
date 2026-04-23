@@ -8,6 +8,9 @@ class InMemoryConnectionRepository(IConnectionRepository):
     def __init__(self, urls: dict[str, str]) -> None:
         self._urls = dict(urls)
 
+    def register(self, connection_id: str, url: str) -> None:
+        self._urls[connection_id] = url
+
     def get_url(self, connection_id: str) -> str:
         try:
             return self._urls[connection_id]

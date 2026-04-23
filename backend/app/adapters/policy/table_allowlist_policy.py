@@ -7,12 +7,11 @@ from domain.interfaces.query_policy import IQueryPolicy
 
 
 class TableAllowlistPolicy(IQueryPolicy):
-    """Enforces per-connection table entitlements.
+    """Enforces per-connection table entitlements (closed-by-default).
 
-    Each connection may have an approved set of table names.  Any table
-    referenced in the spec that is absent from the allowlist raises
+    Any table referenced in the spec that is absent from the allowlist raises
     ``PolicyViolation``.  If ``connection_id`` has no entry in ``allowlists``
-    all tables are permitted (open-by-default; M5 will tighten this).
+    a ``PolicyViolation`` is raised.
 
     Attributes:
         _allowlists: Mapping of ``connection_id`` → approved table names.
@@ -33,7 +32,9 @@ class TableAllowlistPolicy(IQueryPolicy):
         """
         approved = self._allowlists.get(spec.connection_id)
         if approved is None:
-            return  # unknown connection → open by default
+            raise PolicyViolation(
+                f"No allowlist configured for connection '{spec.connection_id}'"
+            )
 
         all_tables = {spec.source.table} | {j.table for j in spec.joins}
         for table in all_tables:
