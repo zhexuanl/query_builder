@@ -1,4 +1,8 @@
-## ADDED Requirements
+## Purpose
+
+Define and enforce governance rules on `QuerySpec` objects before compilation, ensuring structural validity, row-limit safety, and per-connection table entitlements.
+
+## Requirements
 
 ### Requirement: Policy validation rejects structurally invalid QuerySpecs
 The `IQueryPolicy` port SHALL expose a single `validate(spec, catalog)` method. Implementations MUST raise `PolicyViolation` for any rule violation and MUST return `None` on success. `PolicyViolation` messages MUST identify the violated rule and the offending value.
