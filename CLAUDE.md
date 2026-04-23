@@ -129,3 +129,79 @@ Use the `decision-gate` skill before committing to any choice that would be **ex
 **Skip the decision gate for:** trivial implementation choices, style preferences, adding a method to an existing port that has only one implementation.
 
 The gate output must be recorded in a comment in the PR or plan file — not lost in chat.
+
+---
+
+## 8. OpenSpec Workflow
+
+Every milestone uses the OpenSpec system for structured change management. Four skills cover the full lifecycle:
+
+| Skill | Command | When |
+|---|---|---|
+| `openspec-explore` | `/opsx:explore` | Before proposing — think, diagram, diagnose. No code. |
+| `openspec-propose` | `/opsx:propose` | Start of every milestone — generates all artifacts before a line is written. |
+| `openspec-apply-change` | `/opsx:apply` | Implementation — works through `tasks.md` task by task. |
+| `openspec-archive-change` | `/opsx:archive` | After the phase commit — archives and syncs delta specs to main specs. |
+
+### Full per-milestone sequence
+
+```
+1.  /opsx:explore <milestone>        ← optional; think before proposing
+2.  /opsx:propose <milestone>        ← generates proposal.md, design.md, tasks.md
+    └─ if design.md requires an expensive choice → invoke decision-gate (§7)
+3.  /opsx:apply <milestone>          ← implements all tasks in tasks.md
+4.  Adversarial review (§6)          ← spawn code-reviewer agent over all changed files
+5.  Fix blockers from review
+6.  git commit "MN: …"
+7.  /opsx:archive <milestone>        ← archives change; optionally syncs delta specs
+```
+
+### Artifact locations
+
+```
+openspec/
+├── config.yaml                      ← project context fed to AI on every artifact creation
+├── specs/<capability>/spec.md       ← canonical capability specs (long-lived)
+└── changes/
+    ├── <name>/
+    │   ├── .openspec.yaml
+    │   ├── proposal.md              ← what & why
+    │   ├── design.md                ← how (ports, data shapes, key decisions)
+    │   ├── tasks.md                 ← implementation checklist
+    │   └── specs/                   ← delta specs merged into openspec/specs/ on archive
+    └── archive/
+        └── YYYY-MM-DD-<name>/       ← immutable record after archival
+```
+
+### CLI reference
+
+```bash
+openspec list --json                                    # list active changes
+openspec new change "<name>"                            # scaffold a new change
+openspec status --change "<name>" --json                # artifact completion graph
+openspec instructions <artifact-id> --change "<name>" --json   # generation instructions
+openspec instructions apply --change "<name>" --json    # apply/task instructions
+```
+
+### Project context
+
+Keep `openspec/config.yaml` current. The `context:` field is injected into every artifact generation prompt — stale context produces misaligned artifacts.
+
+```yaml
+# openspec/config.yaml
+schema: spec-driven
+context: |
+  Python 3.12, FastAPI, SQLAlchemy Core (primary compiler), SQLGlot (lint)
+  Clean Architecture: domain / use_cases / adapters / infrastructure
+  Target dialects: Postgres + SQL Server (both first-party SQLAlchemy dialects)
+  Angular frontend, custom components (no query-builder library)
+  Google-style docstrings. No decorative inline comments.
+  Commits scoped to milestone: "MN: <description>"
+```
+
+### Rules for `openspec-apply-change`
+
+- Mark each task `- [x]` immediately after completion — never batch.
+- If a task reveals a design issue, pause and update `design.md` before continuing.
+- If a task is ambiguous, pause and ask — don't guess.
+- Apply the adversarial review (§6) and commit only after all tasks are `- [x]`.

@@ -1,20 +1,57 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+context: |
+  Project: Governed visual query builder for an MLOps platform.
+  Non-technical users define training datasets via a step-based UI.
+  The UI produces a QuerySpec AST (never raw SQL); the backend compiles it to SQL.
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+  Backend:
+    Language: Python 3.12
+    Framework: FastAPI
+    Architecture: Clean Architecture — domain / use_cases / adapters / infrastructure
+      - domain/: pure Python dataclasses, frozen value objects, ABC ports, zero framework imports
+      - use_cases/: orchestrate domain entities via injected ports, no HTTP or ORM knowledge
+      - adapters/: concrete port implementations (SQLAlchemy ORM repos, compilers, executors, ciphers)
+      - infrastructure/: FastAPI app factory, DI wiring, config (pydantic-settings)
+    SQL compiler: SQLAlchemy Core (primary) + SQLGlot (optional lint/qualify pass)
+    Target dialects v1: Postgres + SQL Server (both first-party SQLAlchemy dialects)
+    Testing: pytest, in-memory adapters for all use-case unit tests, Docker-based integration tests
+
+  Frontend:
+    Framework: Angular (latest), custom components only — no query-builder library
+    Component library: Angular Material or PrimeNG for primitives
+    UX language: business-friendly ("Primary dataset", "Add related data", "Filter rows") — never SQL terminology
+    State: BehaviorSubject in query-spec.service.ts; TS models codegen'd from OpenAPI
+
+  Style conventions:
+    Python: Google-style docstrings, no decorative inline comments, type hints everywhere
+    Commits: scoped to milestone — "M1: compiler spike – SQLAlchemy Core + golden tests"
+    Identifiers used as SQL aliases/labels are validated as SQL identifiers at construction
+
+  Key domain types (backend/app/domain/):
+    QuerySpec — aggregate root (frozen dataclass)
+    JoinDef, SelectField, SortDef — value objects (frozen dataclasses)
+    ColumnRef, ParamRef, ValueRef — operand value objects
+    Predicate, FilterGroup — filter tree value objects
+    Dialect — Enum(postgres, mssql)
+    Ports: IQueryCompiler, IQueryExecutor, ISchemaReflector, ICatalogRepository,
+           IConnectionRepository, IAuditLog, IDatasetRepository, ICredentialCipher
+
+  Workflow (see CLAUDE.md §5–§8):
+    Phase-gated milestones: M0 (done) → M1 → M2 → M3 → M4 → M5 → M6
+    Each milestone: propose → apply → adversarial review → commit → archive
+    decision-gate skill invoked for expensive-to-reverse design choices
+
+rules:
+  proposal:
+    - Keep proposals under 400 words
+    - Always include a "Non-goals" section
+    - Reference the relevant milestone (M1, M2, etc.) in the title
+  design:
+    - Show the Clean Architecture layer for every new component
+    - Include the port interface definition for any new port
+    - Note which decision-gate triggers (§7 of CLAUDE.md) apply
+  tasks:
+    - Break tasks into chunks completable in under 2 hours
+    - Each task must have a clear done signal (test passes, endpoint returns 200, etc.)
+    - Infrastructure wiring (DI container) is always the last task in a milestone
