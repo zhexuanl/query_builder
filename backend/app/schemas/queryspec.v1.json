@@ -1,0 +1,226 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "QuerySpec",
+  "description": "Machine-readable schema for the query_builder DSL v1.",
+  "type": "object",
+  "required": ["connection_id", "source", "select"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "integer",
+      "const": 1,
+      "default": 1
+    },
+    "connection_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source": { "$ref": "#/$defs/JoinDef" },
+    "select": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/SelectField" },
+      "minItems": 1
+    },
+    "joins": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/JoinDef" }
+    },
+    "where": { "$ref": "#/$defs/FilterGroup" },
+    "group_by": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/ColumnRef" }
+    },
+    "order_by": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/SortDef" }
+    },
+    "limit": {
+      "oneOf": [
+        { "type": "integer", "minimum": 1 },
+        { "type": "null" }
+      ]
+    },
+    "dialect": { "$ref": "#/$defs/Dialect" }
+  },
+  "$defs": {
+    "Dialect": {
+      "type": "string",
+      "enum": ["postgres", "mssql"]
+    },
+    "ColumnRef": {
+      "description": "Reference to a column identified by table alias and column name. kind must be \"column\".",
+      "type": "object",
+      "required": ["kind", "alias", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "type": "string", "const": "column" },
+        "alias": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 }
+      }
+    },
+    "ParamRef": {
+      "description": "Named runtime parameter supplied at execution time. kind must be \"param\".",
+      "type": "object",
+      "required": ["kind", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "type": "string", "const": "param" },
+        "name": { "type": "string", "minLength": 1 }
+      }
+    },
+    "ValueRef": {
+      "description": "Literal scalar value embedded in the spec. kind must be \"value\".",
+      "type": "object",
+      "required": ["kind", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "type": "string", "const": "value" },
+        "value": {
+          "type": ["string", "integer", "number", "boolean", "null"]
+        }
+      }
+    },
+    "Operand": {
+      "description": "Discriminated union of ColumnRef, ParamRef, and ValueRef, identified by the \"kind\" field.",
+      "oneOf": [
+        { "$ref": "#/$defs/ColumnRef" },
+        { "$ref": "#/$defs/ParamRef" },
+        { "$ref": "#/$defs/ValueRef" }
+      ]
+    },
+    "Predicate": {
+      "description": "A single filter condition of the form: left op right.",
+      "type": "object",
+      "required": ["left", "op"],
+      "properties": {
+        "left": { "$ref": "#/$defs/ColumnRef" },
+        "op": {
+          "type": "string",
+          "enum": [
+            "=", "!=", ">", ">=", "<", "<=",
+            "in", "not_in",
+            "like", "not_like",
+            "is_null", "is_not_null",
+            "between"
+          ]
+        },
+        "right": {}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "op": { "enum": ["is_null", "is_not_null"] } },
+            "required": ["op"]
+          },
+          "then": {
+            "properties": { "right": { "type": "null" } }
+          }
+        },
+        {
+          "if": {
+            "properties": { "op": { "enum": ["=", "!=", ">", ">=", "<", "<=", "like", "not_like"] } },
+            "required": ["op"]
+          },
+          "then": {
+            "required": ["right"],
+            "properties": { "right": { "$ref": "#/$defs/Operand" } }
+          }
+        },
+        {
+          "if": {
+            "properties": { "op": { "enum": ["in", "not_in"] } },
+            "required": ["op"]
+          },
+          "then": {
+            "required": ["right"],
+            "properties": {
+              "right": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/Operand" },
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "op": { "const": "between" } },
+            "required": ["op"]
+          },
+          "then": {
+            "required": ["right"],
+            "properties": {
+              "right": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/Operand" },
+                "minItems": 2,
+                "maxItems": 2
+              }
+            }
+          }
+        }
+      ]
+    },
+    "FilterGroup": {
+      "description": "Recursive AND/OR group of filter conditions. Max nesting depth of 10 enforced at runtime (not in schema).",
+      "type": "object",
+      "required": ["op", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "op": { "type": "string", "enum": ["and", "or"] },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "oneOf": [
+              { "$ref": "#/$defs/Predicate" },
+              { "$ref": "#/$defs/FilterGroup" }
+            ]
+          }
+        }
+      }
+    },
+    "JoinDef": {
+      "description": "Describes a single table join or the primary source table.",
+      "type": "object",
+      "required": ["type", "table", "alias", "on"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "type": "string", "enum": ["inner", "left"] },
+        "table": { "type": "string", "minLength": 1 },
+        "alias": { "type": "string", "minLength": 1 },
+        "on": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Predicate" }
+        }
+      }
+    },
+    "SelectField": {
+      "description": "A single output column — either a plain column reference or an aggregate.",
+      "type": "object",
+      "required": ["kind", "source", "label"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "type": "string", "enum": ["column", "agg"] },
+        "source": { "$ref": "#/$defs/ColumnRef" },
+        "label": { "type": "string", "minLength": 1 },
+        "func": {
+          "oneOf": [
+            { "type": "string", "enum": ["count", "count_distinct", "sum", "avg", "min", "max"] },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "SortDef": {
+      "description": "Sort directive referencing an output label from SelectField.",
+      "type": "object",
+      "required": ["label"],
+      "additionalProperties": false,
+      "properties": {
+        "label": { "type": "string", "minLength": 1 },
+        "direction": { "type": "string", "enum": ["asc", "desc"], "default": "asc" }
+      }
+    }
+  }
+}

@@ -9,9 +9,17 @@ from domain.interfaces.query_policy import IQueryPolicy
 class TableAllowlistPolicy(IQueryPolicy):
     """Enforces per-connection table entitlements (closed-by-default).
 
-    Any table referenced in the spec that is absent from the allowlist raises
-    ``PolicyViolation``.  If ``connection_id`` has no entry in ``allowlists``
-    a ``PolicyViolation`` is raised.
+    Behaviour: every ``connection_id`` referenced in a ``QuerySpec`` MUST have an
+    explicit entry in the ``allowlists`` mapping, and every table in the spec MUST
+    appear in that entry's approved set.  A ``connection_id`` absent from the mapping
+    is rejected — there is no implicit "allow-all" fallback.
+
+    Consumers MUST configure an entry for every ``connection_id`` registered in
+    ``IConnectionRepository``.  Forgetting to do so raises ``PolicyViolation`` on
+    the first execution attempt against that connection.
+
+    Any table referenced in the spec that is absent from the allowlist also raises
+    ``PolicyViolation``.
 
     Attributes:
         _allowlists: Mapping of ``connection_id`` → approved table names.
