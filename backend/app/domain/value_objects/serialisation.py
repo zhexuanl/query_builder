@@ -11,6 +11,8 @@ from .filters import FilterGroup, Predicate
 from .query_parts import JoinDef, SelectField, SortDef
 from .refs import ColumnRef, Operand, ParamRef, ValueRef
 
+_SUPPORTED_VERSIONS: frozenset[int] = frozenset({1})
+
 
 @lru_cache(maxsize=1)
 def _load_schema() -> dict[str, Any] | None:
@@ -183,6 +185,9 @@ class QuerySpecCodec:
                 jsonschema.validate(instance=data, schema=_schema)
             except jsonschema.ValidationError as exc:
                 raise ValueError(str(exc)) from exc
+        version = data.get("version", 1)
+        if version not in _SUPPORTED_VERSIONS:
+            raise ValueError(f"Unsupported QuerySpec version: {version!r}")
         where_data = data.get("where")
         group_by_raw = data.get("group_by", [])
         order_by_raw = data.get("order_by", [])

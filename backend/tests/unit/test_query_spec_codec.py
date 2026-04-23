@@ -1,4 +1,6 @@
 """Unit tests for QuerySpecCodec encode/decode round-trips."""
+import json
+
 import pytest
 
 from domain.entities.query_spec import QuerySpec
@@ -238,3 +240,53 @@ class TestDecode:
         assert isinstance(pred.right, tuple)
         assert len(pred.right) == 2
         assert all(isinstance(o, ValueRef) for o in pred.right)
+
+    def test_round_trip_full_spec(self, source, id_col):
+        spec = QuerySpec(
+            connection_id="conn-full",
+            source=source,
+            select=(
+                SelectField(kind="column", source=id_col, label="id"),
+                SelectField(kind="agg", source=ColumnRef("o", "amount"), label="total", func="sum"),
+            ),
+            joins=(
+                JoinDef(
+                    type="left",
+                    table="orders",
+                    alias="o",
+                    on=(Predicate(left=ColumnRef("c", "id"), op="=", right=ColumnRef("o", "customer_id")),),
+                ),
+            ),
+            where=FilterGroup(
+                op="and",
+                items=(
+                    FilterGroup(
+                        op="or",
+                        items=(
+                            Predicate(left=ColumnRef("c", "status"), op="=", right=ValueRef(value="active")),
+                            Predicate(left=ColumnRef("c", "tier"), op="=", right=ValueRef(value="gold")),
+                        ),
+                    ),
+                    Predicate(left=ColumnRef("c", "deleted_at"), op="is_null"),
+                ),
+            ),
+            group_by=(ColumnRef("c", "id"),),
+            order_by=(SortDef(label="total", direction="desc"),),
+            limit=100,
+        )
+        decoded = QuerySpecCodec.decode(QuerySpecCodec.encode(spec))
+        assert decoded == spec
+
+    def test_encode_produces_json_serialisable_dict(self, minimal_spec):
+        data = QuerySpecCodec.encode(minimal_spec)
+        json.dumps(data)  # must not raise
+
+    def test_unsupported_version_raises_value_error(self, source, id_col):
+        data = QuerySpecCodec.encode(QuerySpec(
+            connection_id="conn-1",
+            source=source,
+            select=(SelectField(kind="column", source=id_col, label="id"),),
+        ))
+        data["version"] = 99
+        with pytest.raises(ValueError):
+            QuerySpecCodec.decode(data)

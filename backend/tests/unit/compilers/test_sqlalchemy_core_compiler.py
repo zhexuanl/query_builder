@@ -300,3 +300,80 @@ def test_or_filter_group(compiler, catalog):
     assert "OR" in sql
     assert result.params["status_1"] == "active"
     assert result.params["status_2"] == "trial"
+
+
+# ---------------------------------------------------------------------------
+# Task 4.1 — edge cases
+# ---------------------------------------------------------------------------
+
+def test_is_null_no_bound_param(compiler, catalog):
+    spec = QuerySpec(
+        connection_id="conn1",
+        source=JoinDef(type="inner", table="customers", alias="c", on=()),
+        select=(SelectField(kind="column", source=ColumnRef("c", "customer_id"), label="customer_id"),),
+        where=Predicate(left=ColumnRef("c", "status"), op="is_null"),
+        limit=None,
+    )
+    result = compiler.compile(spec, catalog, Dialect.postgres)
+    assert "IS NULL" in normalize_sql(result.sql)
+    assert result.params == {}
+
+
+def test_in_with_three_value_refs(compiler, catalog):
+    spec = QuerySpec(
+        connection_id="conn1",
+        source=JoinDef(type="inner", table="customers", alias="c", on=()),
+        select=(SelectField(kind="column", source=ColumnRef("c", "customer_id"), label="customer_id"),),
+        where=Predicate(
+            left=ColumnRef("c", "status"),
+            op="in",
+            right=(ValueRef("active"), ValueRef("trial"), ValueRef("pending")),
+        ),
+        limit=None,
+    )
+    result = compiler.compile(spec, catalog, Dialect.postgres)
+    sql = normalize_sql(result.sql)
+    assert "IN" in sql
+    assert len(result.params) == 3
+    assert set(result.params.values()) == {"active", "trial", "pending"}
+
+
+def test_nested_or_in_and_parenthesisation(compiler, catalog):
+    spec = QuerySpec(
+        connection_id="conn1",
+        source=JoinDef(type="inner", table="customers", alias="c", on=()),
+        select=(SelectField(kind="column", source=ColumnRef("c", "customer_id"), label="customer_id"),),
+        where=FilterGroup(
+            op="and",
+            items=(
+                FilterGroup(
+                    op="or",
+                    items=(
+                        Predicate(left=ColumnRef("c", "status"), op="=", right=ValueRef("active")),
+                        Predicate(left=ColumnRef("c", "country"), op="=", right=ValueRef("US")),
+                    ),
+                ),
+                Predicate(left=ColumnRef("c", "age"), op=">", right=ValueRef(18)),
+            ),
+        ),
+        limit=None,
+    )
+    result = compiler.compile(spec, catalog, Dialect.postgres)
+    sql = normalize_sql(result.sql)
+    assert "AND" in sql
+    assert "OR" in sql
+    # The OR clause must be wrapped in parens so AND binds correctly
+    assert "(" in sql
+
+
+def test_limit_none_produces_no_limit_clause(compiler, catalog):
+    spec = QuerySpec(
+        connection_id="conn1",
+        source=JoinDef(type="inner", table="customers", alias="c", on=()),
+        select=(SelectField(kind="column", source=ColumnRef("c", "customer_id"), label="customer_id"),),
+        limit=None,
+    )
+    result_pg = compiler.compile(spec, catalog, Dialect.postgres)
+    result_ms = compiler.compile(spec, catalog, Dialect.mssql)
+    assert "LIMIT" not in normalize_sql(result_pg.sql).upper()
+    assert "TOP" not in normalize_sql(result_ms.sql).upper()
