@@ -60,3 +60,14 @@ class ICatalogRepository(ABC):
         Returns:
             A ``CatalogView`` populated with metadata for the requested tables.
         """
+
+    @abstractmethod
+    def invalidate(self, connection_id: str) -> None:
+        """Evict all cached views for the given connection.
+
+        The next ``view_for`` call after invalidation will re-fetch from the
+        source database.
+
+        Args:
+            connection_id: Connection whose cache entries should be removed.
+        """
