@@ -8,7 +8,7 @@ The shell still needs to look like the real governed query workflow. That means 
 
 - Create `frontend/` as an Angular workspace with one library and one demo app
 - Configure the library surface as `@query-builder/ui`
-- Establish PrimeNG unstyled mode, Tailwind styling, and a shared pass-through theme object
+- Establish Tailwind styling, CSS tokens, and a shared class-token theme object
 - Export one shell component, `QueryBuilderComponent`, rendered as `<qb-query-builder>`
 - Render the real business-language shell sections and preview shell states with local-only interactions
 
@@ -30,8 +30,23 @@ The hard-to-reverse choices for this milestone are already decided and locked fo
   Outcome: configure the shell library surface as `@query-builder/ui`, with only `QueryBuilderComponent` and `QUERY_BUILDER_PT` exported in this milestone.
   Rejected: exporting secondary surfaces or config tokens before they exist.
 - Theme contract:
-  Outcome: PrimeNG in unstyled mode with Tailwind utilities and `QUERY_BUILDER_PT` as the visual contract.
-  Rejected: PrimeNG theme CSS, Material-style defaults, or a shell that delays the theme system to a later milestone.
+  Outcome: Tailwind utilities, CSS custom properties, and `QUERY_BUILDER_PT` as the visual contract.
+  Rejected: Material-style defaults, stock component theme CSS, or a shell that delays the theme system to a later milestone.
+
+## Decision Gate Correction
+
+Task 3 verified that the PrimeNG Angular package available for this Angular 17 workspace does not expose a real unstyled pass-through configuration surface. Mutating private or non-existent config fields would create a false contract, so the cleaner design removes PrimeNG from this milestone and keeps the theme boundary owned by the library.
+
+Correctness-critical:
+
+- the public package exports the promised theme object
+- visual tokens are local to the library and demo
+- no dependency is configured through unsupported API shape
+
+Rejected mechanism:
+
+- fake `unstyled` or `pt` fields on PrimeNG config
+- an unused third-party primitive dependency for a shell that can be rendered with Angular templates and Tailwind
 - Shell state model:
   Outcome: local Angular signals only for shell interaction state.
   Rejected: shared service state, RxJS draft orchestration, or any API-backed state model in this milestone.
@@ -78,7 +93,7 @@ The builder rail shows the real business-language sections in order so the shell
 
 ### Decision 5 — Theme foundation ships now
 
-PrimeNG runs in unstyled mode. Visual styling comes from Tailwind utilities, CSS tokens, and the exported `QUERY_BUILDER_PT` pass-through theme object. This milestone establishes the design system contract without inventing backend behavior.
+Visual styling comes from Tailwind utilities, CSS tokens, and the exported `QUERY_BUILDER_PT` class-token object. This milestone establishes the design system contract without inventing backend behavior or binding the package to unsupported third-party theming APIs.
 
 ## Design Boundaries
 
@@ -133,7 +148,7 @@ Required verification for the implementation milestone:
 ## Risks / Trade-offs
 
 - Locking `@query-builder/ui` now keeps the shell honest, but it does commit the milestone to a library-first surface before richer features land.
-- PrimeNG unstyled mode plus Tailwind gives stronger control over the visual result, but it raises the implementation burden versus accepting stock component theming.
+- Owning the shell styling with Tailwind and CSS tokens gives stronger control over the visual result, but later primitive adoption will need a separate milestone if it changes the public theme contract.
 - Local signals keep the shell clean and reversible for this phase, but later milestones will need an explicit state boundary when real QuerySpec editing arrives.
 
 ## Migration Plan

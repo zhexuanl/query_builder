@@ -10,7 +10,7 @@ This change now tracks only the shell milestone. It establishes the Angular work
 
 - New Angular workspace at `frontend/` with one library and one demo app
 - Library package surface for `@query-builder/ui`
-- PrimeNG unstyled mode + Tailwind + pass-through theme object
+- Tailwind styling + CSS tokens + exported theme class-token object
 - One exported shell component: `<qb-query-builder>`
 - Premium split-panel shell with business-language sections and preview states
 

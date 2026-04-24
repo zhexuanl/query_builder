@@ -9,7 +9,7 @@
 
 ## 3. Theme Foundation
 
-- [x] 3.1 Install and configure PrimeNG in unstyled mode with Tailwind-based styling
+- [x] 3.1 Configure Tailwind-based styling, CSS tokens, and the light-only shell theme foundation
 - [x] 3.2 Create and export `QUERY_BUILDER_PT` plus the shell design tokens required for the approved visual direction
 
 ## 4. Shell Components
