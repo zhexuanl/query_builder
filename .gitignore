@@ -181,6 +181,7 @@ cython_debug/
 .cursorindexingignore
 
 # Local agent worktrees
+.superpowers/
 .worktrees/
 
 # Frontend generated artifacts
