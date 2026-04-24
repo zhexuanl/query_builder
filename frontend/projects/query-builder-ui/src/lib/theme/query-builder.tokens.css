@@ -1,0 +1,23 @@
+:root {
+  --qb-color-canvas: #f7f2ea;
+  --qb-color-surface: #fffaf2;
+  --qb-color-surface-muted: #f1eadf;
+  --qb-color-surface-raised: #fffdf8;
+  --qb-color-border: #d7dee8;
+  --qb-color-border-strong: #b9c3d0;
+  --qb-color-text: #17202a;
+  --qb-color-text-muted: #5d6875;
+  --qb-color-text-subtle: #7b8794;
+  --qb-accent-primary: #c8641a;
+  --qb-accent-primary-hover: #a95213;
+  --qb-accent-primary-soft: #ffe5cf;
+  --qb-sql-surface: #101820;
+  --qb-sql-text: #f4efe6;
+  --qb-sql-text-muted: #9aa8b8;
+  --qb-radius-sm: 10px;
+  --qb-radius-md: 14px;
+  --qb-radius-lg: 20px;
+  --qb-shadow-surface: 0 18px 48px rgb(23 32 42 / 12%);
+  --qb-font-sans: 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif;
+  --qb-font-mono: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+}
