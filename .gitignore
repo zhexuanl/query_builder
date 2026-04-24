@@ -182,3 +182,9 @@ cython_debug/
 
 # Local agent worktrees
 .worktrees/
+
+# Frontend generated artifacts
+frontend/.angular/
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
