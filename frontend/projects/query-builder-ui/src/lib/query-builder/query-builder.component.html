@@ -3,8 +3,8 @@
     <header class="qb-builder__header">
       <p class="qb-kicker">Governed query</p>
       <div>
-        <h1>Build without SQL drift</h1>
-        <p>Compose a governed analytical query in business language. Execution and persistence are intentionally out of scope for this shell.</p>
+        <h1>Build a QuerySpec draft</h1>
+        <p>Compose a governed analytical query in business language. Compile, preview, and persistence remain consumer-owned.</p>
       </div>
     </header>
 
@@ -27,16 +27,131 @@
           @if (isSectionExpanded(section.id)) {
             <div class="qb-section__body">
               <p>{{ section.summary }}</p>
-              <div class="qb-chip-row" aria-label="Selected values">
-                @for (chip of section.chips; track chip) {
-                  <span class="qb-chip">{{ chip }}</span>
+
+              @switch (section.id) {
+                @case ('start') {
+                  <label class="qb-field">
+                    <span>Primary dataset</span>
+                    <select
+                      class="qb-select"
+                      aria-label="Primary dataset"
+                      [value]="currentDraft().source.table"
+                      (change)="sourceChanged($event)"
+                    >
+                      @for (source of sourceOptions; track source.table) {
+                        <option [value]="source.table">{{ source.label }}</option>
+                      }
+                    </select>
+                  </label>
+                  <p class="qb-control-note">Connection: {{ currentDraft().connection_id }}</p>
                 }
-              </div>
-              <ul>
-                @for (detail of section.details; track detail) {
-                  <li>{{ detail }}</li>
+
+                @case ('related-data') {
+                  <button
+                    class="qb-choice"
+                    type="button"
+                    data-testid="customer-join-control"
+                    [class.qb-choice--active]="isCustomerJoinEnabled()"
+                    [attr.aria-pressed]="isCustomerJoinEnabled()"
+                    (click)="setCustomerJoin(!isCustomerJoinEnabled())"
+                  >
+                    Customer context
+                  </button>
+                  <p class="qb-control-note">Relationship: orders to customers by customer identity</p>
                 }
-              </ul>
+
+                @case ('columns') {
+                  <div class="qb-choice-row" aria-label="Selected columns">
+                    @for (field of selectFields; track field.label) {
+                      <button
+                        class="qb-choice"
+                        type="button"
+                        [class.qb-choice--active]="isSelectFieldEnabled(field.label)"
+                        [attr.aria-pressed]="isSelectFieldEnabled(field.label)"
+                        (click)="toggleSelectField(field.label)"
+                      >
+                        {{ field.label }}
+                      </button>
+                    }
+                  </div>
+                }
+
+                @case ('filters') {
+                  <div class="qb-choice-row" aria-label="Date window">
+                    @for (window of dateWindows; track window) {
+                      <button
+                        class="qb-choice"
+                        type="button"
+                        [class.qb-choice--active]="currentDateWindow() === window"
+                        [attr.aria-pressed]="currentDateWindow() === window"
+                        (click)="setDateWindow(window)"
+                      >
+                        {{ window === 'last_90_days' ? 'Last 90 days' : 'Last 30 days' }}
+                      </button>
+                    }
+                  </div>
+                  <p class="qb-control-note">Current date rule: {{ currentDateWindow() }}</p>
+                }
+
+                @case ('parameters') {
+                  <label class="qb-field">
+                    <span>Region parameter</span>
+                    <select
+                      class="qb-select"
+                      aria-label="Region parameter"
+                      [value]="currentRegionParameter()"
+                      (change)="parameterChanged($event)"
+                    >
+                      @for (parameterName of parameterNames; track parameterName) {
+                        <option [value]="parameterName">{{ parameterName }}</option>
+                      }
+                    </select>
+                  </label>
+                  <p class="qb-control-note">Region filter uses a runtime parameter, not a hard-coded value.</p>
+                }
+
+                @case ('sort-limit') {
+                  <div class="qb-control-grid">
+                    <label class="qb-field">
+                      <span>Sort result by</span>
+                      <select
+                        class="qb-select"
+                        aria-label="Sort result by"
+                        [value]="currentDraft().order_by?.[0]?.label ?? 'Revenue'"
+                        (change)="sortChanged($event)"
+                      >
+                        @for (sort of sortOptions; track sort.label) {
+                          <option [value]="sort.label">{{ sort.label }}</option>
+                        }
+                      </select>
+                    </label>
+                    <label class="qb-field">
+                      <span>Row limit</span>
+                      <input
+                        class="qb-input"
+                        type="number"
+                        min="1"
+                        aria-label="Row limit"
+                        [value]="currentDraft().limit ?? 500"
+                        (change)="limitChanged($event)"
+                      />
+                    </label>
+                    <label class="qb-field">
+                      <span>Dialect</span>
+                      <select
+                        class="qb-select"
+                        aria-label="Dialect"
+                        [value]="currentDraft().dialect ?? 'postgres'"
+                        (change)="dialectChanged($event)"
+                      >
+                        @for (dialect of dialectOptions; track dialect) {
+                          <option [value]="dialect">{{ dialect }}</option>
+                        }
+                      </select>
+                    </label>
+                  </div>
+                }
+              }
             </div>
           }
         </section>
@@ -47,8 +162,8 @@
   <main class="qb-preview" aria-label="Preview pane">
     <header class="qb-preview__bar">
       <div>
-        <p class="qb-kicker">Preview</p>
-        <h2>Revenue query draft</h2>
+        <p class="qb-kicker">Preview intent</p>
+        <h2>Draft for {{ currentDraft().source.table }}</h2>
       </div>
       <div class="qb-preview__actions" aria-label="Preview mode">
         @for (mode of previewModes; track mode) {
@@ -70,27 +185,19 @@
         <div class="qb-empty">
           <span class="qb-empty__mark" aria-hidden="true"></span>
           <h3>No preview requested</h3>
-          <p>The shell can represent an empty preview state without pretending to execute a query.</p>
+          <p>The shell emits intent events only. Consumers own compilation, preview execution, and persistence.</p>
         </div>
       } @else if (previewMode() === 'sql') {
-        <pre class="qb-sql"><code>{{ previewSql }}</code></pre>
+        <div class="qb-empty qb-empty--technical">
+          <span class="qb-empty__mark" aria-hidden="true"></span>
+          <h3>SQL intent emitted</h3>
+          <p>The library does not compile SQL. Consumers receive the current QuerySpec draft and decide how to compile it.</p>
+        </div>
       } @else {
-        <div class="qb-table" role="table" aria-label="Revenue preview rows">
-          <div class="qb-table__row qb-table__row--head" role="row">
-            <span role="columnheader">Date</span>
-            <span role="columnheader">Segment</span>
-            <span role="columnheader">Region</span>
-            <span role="columnheader">Revenue</span>
-            <span role="columnheader">Margin</span>
-            <span role="columnheader">Status</span>
-          </div>
-          @for (row of previewRows; track row[0]) {
-            <div class="qb-table__row" role="row">
-              @for (cell of row; track cell) {
-                <span role="cell">{{ cell }}</span>
-              }
-            </div>
-          }
+        <div class="qb-empty">
+          <span class="qb-empty__mark" aria-hidden="true"></span>
+          <h3>Preview intent emitted</h3>
+          <p>The library does not execute queries. Consumers receive the current QuerySpec draft and own result rendering.</p>
         </div>
       }
     </div>

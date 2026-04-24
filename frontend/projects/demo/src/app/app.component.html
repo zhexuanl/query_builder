@@ -1,3 +1,18 @@
 <main class="demo-shell">
-  <qb-query-builder />
+  <qb-query-builder
+    (draftChange)="recordDraft($event)"
+    (previewRequested)="recordPreview($event)"
+    (sqlRequested)="recordSql($event)"
+  />
+
+  <aside class="demo-inspector" aria-label="Draft event inspector">
+    <section>
+      <p class="demo-inspector__eyebrow">Latest draft event</p>
+      <pre>{{ latestDraft() | json }}</pre>
+    </section>
+    <section>
+      <p class="demo-inspector__eyebrow">Latest intent event</p>
+      <pre>{{ latestIntent() | json }}</pre>
+    </section>
+  </aside>
 </main>

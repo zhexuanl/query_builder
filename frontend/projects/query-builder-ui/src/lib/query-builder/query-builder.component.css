@@ -178,6 +178,69 @@ h1 {
   font-weight: 650;
 }
 
+.qb-control-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.qb-field {
+  display: grid;
+  gap: 7px;
+  color: var(--qb-color-text);
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.qb-select,
+.qb-input {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid var(--qb-color-border);
+  border-radius: var(--qb-radius-md);
+  background: var(--qb-color-surface-raised);
+  color: var(--qb-color-text);
+  font: 650 14px/1.2 var(--qb-font-sans);
+  outline: none;
+  padding: 0 12px;
+}
+
+.qb-select:focus,
+.qb-input:focus {
+  border-color: var(--qb-accent-primary);
+  box-shadow: 0 0 0 3px rgb(200 100 26 / 14%);
+}
+
+.qb-choice-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.qb-choice {
+  min-height: 36px;
+  border: 1px solid var(--qb-color-border);
+  border-radius: 999px;
+  background: var(--qb-color-surface-raised);
+  color: var(--qb-color-text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 750;
+  padding: 0 13px;
+}
+
+.qb-choice--active {
+  border-color: var(--qb-accent-primary);
+  background: var(--qb-accent-primary-soft);
+  color: var(--qb-color-text);
+}
+
+.qb-control-note {
+  color: var(--qb-color-text-subtle);
+  font-size: 13px;
+}
+
 ul {
   display: grid;
   gap: 7px;
@@ -259,50 +322,14 @@ h2 {
   color: var(--qb-color-text-muted);
 }
 
-.qb-table {
-  display: grid;
-  min-width: 760px;
-}
-
-.qb-table__row {
-  display: grid;
-  grid-template-columns: 1.1fr 1fr 0.8fr 1fr 0.7fr 0.8fr;
-  border-bottom: 1px solid var(--qb-color-border);
-}
-
-.qb-table__row:last-child {
-  border-bottom: 0;
-}
-
-.qb-table__row span {
-  padding: 18px 20px;
-  color: var(--qb-color-text-muted);
-  font-size: 14px;
-}
-
-.qb-table__row--head span {
-  background: var(--qb-color-surface-muted);
-  color: var(--qb-color-text);
-  font-size: 12px;
-  font-weight: 750;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.qb-sql {
-  min-height: 500px;
-  margin: 0;
+.qb-empty--technical {
   background:
     linear-gradient(90deg, rgb(255 255 255 / 5%) 1px, transparent 1px),
     var(--qb-sql-surface);
   background-size: 44px 44px;
   color: var(--qb-sql-text);
-  font-family: var(--qb-font-mono);
-  font-size: 15px;
-  line-height: 1.75;
-  padding: 34px;
 }
 
-.qb-sql code {
-  color: inherit;
+.qb-empty--technical p {
+  color: var(--qb-sql-text-muted);
 }

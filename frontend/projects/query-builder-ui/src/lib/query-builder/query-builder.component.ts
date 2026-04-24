@@ -1,23 +1,32 @@
-import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, computed, signal } from '@angular/core';
 
-type BuilderSectionId =
-  | 'start'
-  | 'related-data'
-  | 'columns'
-  | 'filters'
-  | 'parameters'
-  | 'sort-limit';
-
-type PreviewMode = 'empty' | 'data' | 'sql';
-
-interface BuilderSection {
-  readonly id: BuilderSectionId;
-  readonly title: string;
-  readonly eyebrow: string;
-  readonly summary: string;
-  readonly chips: readonly string[];
-  readonly details: readonly string[];
-}
+import {
+  BUILDER_SECTIONS,
+  DATE_WINDOWS,
+  DIALECT_OPTIONS,
+  PARAMETER_NAMES,
+  PREVIEW_MODES,
+  SORT_OPTIONS,
+  SOURCE_OPTIONS,
+  SELECT_FIELDS
+} from './query-builder-shell.config';
+import type { BuilderSectionId } from './query-builder-shell.config';
+import { createDefaultQuerySpecDraft } from './queryspec-draft.defaults';
+import type { QueryBuilderDraftIntent, QuerySpecDialectDraft, QuerySpecDraft } from './queryspec-draft.models';
+import {
+  currentDateWindow,
+  currentRegionParameter,
+  isCustomerJoinEnabled,
+  isSelectFieldEnabled,
+  updateCustomerJoin,
+  updateDateWindow,
+  updateDialect,
+  updateDraftSource,
+  updateLimit,
+  updateRegionParameter,
+  updateSelectedField,
+  updateSort
+} from './queryspec-draft.updaters';
 
 @Component({
   selector: 'qb-query-builder',
@@ -27,82 +36,33 @@ interface BuilderSection {
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class QueryBuilderComponent {
-  protected readonly sections: readonly BuilderSection[] = [
-    {
-      id: 'start',
-      title: 'Start with',
-      eyebrow: 'Primary dataset',
-      summary: 'Choose the governed source that anchors the query.',
-      chips: ['Orders', 'Production', 'Certified'],
-      details: ['Dataset: Orders', 'Owner: Revenue Operations', 'Freshness: 12 minutes']
-    },
-    {
-      id: 'related-data',
-      title: 'Add related data',
-      eyebrow: 'Relationship path',
-      summary: 'Join trusted customer context without exposing join syntax.',
-      chips: ['Customers', 'Left join'],
-      details: ['Orders.customer_id -> Customers.id', 'Relationship quality: verified']
-    },
-    {
-      id: 'columns',
-      title: 'Choose columns',
-      eyebrow: 'Readable output',
-      summary: 'Keep the result focused on metrics an analyst can act on.',
-      chips: ['6 fields', '2 metrics'],
-      details: ['Order date, customer segment, region', 'Revenue, margin, fulfilment status']
-    },
-    {
-      id: 'filters',
-      title: 'Filter rows',
-      eyebrow: 'Business rules',
-      summary: 'Constrain the slice before expensive preview execution.',
-      chips: ['Last 90 days', 'Active regions'],
-      details: ['Order date is within the last 90 days', 'Region is not archived']
-    },
-    {
-      id: 'parameters',
-      title: 'Parameters',
-      eyebrow: 'Reusable inputs',
-      summary: 'Promote common values to named controls for repeat runs.',
-      chips: ['Region', 'Minimum margin'],
-      details: ['region = APAC', 'minimum_margin = 18%']
-    },
-    {
-      id: 'sort-limit',
-      title: 'Sort & Limit',
-      eyebrow: 'Result guardrails',
-      summary: 'Make the preview deterministic and bounded.',
-      chips: ['Revenue desc', '500 rows'],
-      details: ['Sort by revenue descending', 'Limit preview to 500 rows']
+  @Input()
+  set draft(value: QuerySpecDraft | null | undefined) {
+    if (value) {
+      this.draftState.set(value);
     }
-  ];
+  }
 
-  protected readonly previewModes: readonly PreviewMode[] = ['empty', 'data', 'sql'];
+  @Output() readonly draftChange = new EventEmitter<QuerySpecDraft>();
+  @Output() readonly previewRequested = new EventEmitter<QueryBuilderDraftIntent>();
+  @Output() readonly sqlRequested = new EventEmitter<QueryBuilderDraftIntent>();
+
+  protected readonly sections = BUILDER_SECTIONS;
+  protected readonly sourceOptions = SOURCE_OPTIONS;
+  protected readonly selectFields = SELECT_FIELDS;
+  protected readonly previewModes = PREVIEW_MODES;
+  protected readonly dateWindows = DATE_WINDOWS;
+  protected readonly parameterNames = PARAMETER_NAMES;
+  protected readonly sortOptions = SORT_OPTIONS;
+  protected readonly dialectOptions = DIALECT_OPTIONS;
+
+  private readonly draftState = signal<QuerySpecDraft>(createDefaultQuerySpecDraft());
+
+  protected readonly currentDraft = computed(() => this.draftState());
   protected readonly expandedSections = signal<ReadonlySet<BuilderSectionId>>(
     new Set(['start', 'related-data', 'columns', 'filters'])
   );
-  protected readonly previewMode = signal<PreviewMode>('data');
-
-  protected readonly previewRows = [
-    ['2026-04-22', 'Enterprise', 'APAC', '$428,900', '31.4%', 'Approved'],
-    ['2026-04-21', 'Strategic', 'EMEA', '$392,180', '28.9%', 'Review'],
-    ['2026-04-20', 'Commercial', 'AMER', '$241,760', '24.2%', 'Approved']
-  ] as const;
-
-  protected readonly previewSql = [
-    'select',
-    '  o.order_date,',
-    '  c.segment,',
-    '  o.region,',
-    '  sum(o.revenue) as revenue,',
-    '  avg(o.margin) as margin',
-    'from orders o',
-    'left join customers c on o.customer_id = c.id',
-    'where o.order_date >= current_date - interval \'90 days\'',
-    'order by revenue desc',
-    'limit 500;'
-  ].join('\n');
+  protected readonly previewMode = signal<(typeof PREVIEW_MODES)[number]>('data');
 
   protected isSectionExpanded(sectionId: BuilderSectionId): boolean {
     return this.expandedSections().has(sectionId);
@@ -120,7 +80,87 @@ export class QueryBuilderComponent {
     this.expandedSections.set(next);
   }
 
-  protected selectPreviewMode(mode: PreviewMode): void {
+  protected selectPreviewMode(mode: (typeof PREVIEW_MODES)[number]): void {
     this.previewMode.set(mode);
+
+    if (mode === 'data') {
+      this.previewRequested.emit({ draft: this.currentDraft() });
+    }
+
+    if (mode === 'sql') {
+      this.sqlRequested.emit({ draft: this.currentDraft() });
+    }
   }
+
+  protected sourceChanged(event: Event): void {
+    const table = readValue(event);
+    const option = this.sourceOptions.find((item) => item.table === table);
+
+    if (option) {
+      this.commitDraft(updateDraftSource(this.currentDraft(), option));
+    }
+  }
+
+  protected setCustomerJoin(enabled: boolean): void {
+    this.commitDraft(updateCustomerJoin(this.currentDraft(), enabled));
+  }
+
+  protected isCustomerJoinEnabled(): boolean {
+    return isCustomerJoinEnabled(this.currentDraft());
+  }
+
+  protected toggleSelectField(label: string): void {
+    this.commitDraft(updateSelectedField(this.currentDraft(), label));
+  }
+
+  protected isSelectFieldEnabled(label: string): boolean {
+    return isSelectFieldEnabled(this.currentDraft(), label);
+  }
+
+  protected setDateWindow(window: (typeof DATE_WINDOWS)[number]): void {
+    this.commitDraft(updateDateWindow(this.currentDraft(), window));
+  }
+
+  protected currentDateWindow(): string {
+    return currentDateWindow(this.currentDraft());
+  }
+
+  protected parameterChanged(event: Event): void {
+    this.commitDraft(updateRegionParameter(this.currentDraft(), readValue(event)));
+  }
+
+  protected currentRegionParameter(): string {
+    return currentRegionParameter(this.currentDraft());
+  }
+
+  protected sortChanged(event: Event): void {
+    const label = readValue(event);
+    const sort = this.sortOptions.find((item) => item.label === label);
+
+    if (sort) {
+      this.commitDraft(updateSort(this.currentDraft(), sort));
+    }
+  }
+
+  protected limitChanged(event: Event): void {
+    this.commitDraft(updateLimit(this.currentDraft(), Number(readValue(event))));
+  }
+
+  protected dialectChanged(event: Event): void {
+    const dialect = readValue(event) as QuerySpecDialectDraft;
+
+    if (this.dialectOptions.includes(dialect)) {
+      this.commitDraft(updateDialect(this.currentDraft(), dialect));
+    }
+  }
+
+  // Centralize write + emit so future validation can be inserted without hunting through template handlers.
+  private commitDraft(next: QuerySpecDraft): void {
+    this.draftState.set(next);
+    this.draftChange.emit(next);
+  }
+}
+
+function readValue(event: Event): string {
+  return (event.target as HTMLInputElement | HTMLSelectElement).value;
 }

@@ -20,4 +20,19 @@ describe('AppComponent', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('qb-query-builder')).toBeTruthy();
   });
+
+  it('should capture emitted draft output locally', () => {
+    const fixture = TestBed.createComponent(AppComponent);
+    fixture.detectChanges();
+    const select = fixture.nativeElement.querySelector(
+      'select[aria-label="Primary dataset"]'
+    ) as HTMLSelectElement;
+
+    select.value = 'invoices';
+    select.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('finance-warehouse');
+    expect(fixture.nativeElement.textContent).toContain('invoices');
+  });
 });
