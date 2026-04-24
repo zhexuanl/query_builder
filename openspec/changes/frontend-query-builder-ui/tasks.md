@@ -5,7 +5,7 @@
 ## 2. Workspace Scaffold
 
 - [x] 2.1 Create the Angular workspace under `frontend/` with one library project and one demo app
-- [x] 2.2 Configure the library package surface as `@query-builder/ui` with `<qb-query-builder>` as the shell entry point
+- [x] 2.2 Configure the library package surface as `@query-builder/ui`
 
 ## 3. Theme Foundation
 
