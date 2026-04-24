@@ -16,7 +16,7 @@
     "moduleResolution": "node",
     "paths": {
       "@query-builder/ui": [
-        "./dist/query-builder-ui"
+        "./projects/query-builder-ui/src/public-api.ts"
       ]
     },
     "importHelpers": true,

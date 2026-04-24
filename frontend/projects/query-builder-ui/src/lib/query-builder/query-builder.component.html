@@ -1,0 +1,98 @@
+<section class="qb-shell" aria-label="Query builder shell">
+  <aside class="qb-builder" aria-label="Builder rail">
+    <header class="qb-builder__header">
+      <p class="qb-kicker">Governed query</p>
+      <div>
+        <h1>Build without SQL drift</h1>
+        <p>Compose a governed analytical query in business language. Execution and persistence are intentionally out of scope for this shell.</p>
+      </div>
+    </header>
+
+    <div class="qb-section-list">
+      @for (section of sections; track section.id) {
+        <section class="qb-section" [class.qb-section--open]="isSectionExpanded(section.id)">
+          <button
+            class="qb-section__trigger"
+            type="button"
+            [attr.aria-expanded]="isSectionExpanded(section.id)"
+            (click)="toggleSection(section.id)"
+          >
+            <span>
+              <span class="qb-section__eyebrow">{{ section.eyebrow }}</span>
+              <span class="qb-section__title">{{ section.title }}</span>
+            </span>
+            <span class="qb-section__chevron" aria-hidden="true"></span>
+          </button>
+
+          @if (isSectionExpanded(section.id)) {
+            <div class="qb-section__body">
+              <p>{{ section.summary }}</p>
+              <div class="qb-chip-row" aria-label="Selected values">
+                @for (chip of section.chips; track chip) {
+                  <span class="qb-chip">{{ chip }}</span>
+                }
+              </div>
+              <ul>
+                @for (detail of section.details; track detail) {
+                  <li>{{ detail }}</li>
+                }
+              </ul>
+            </div>
+          }
+        </section>
+      }
+    </div>
+  </aside>
+
+  <main class="qb-preview" aria-label="Preview pane">
+    <header class="qb-preview__bar">
+      <div>
+        <p class="qb-kicker">Preview</p>
+        <h2>Revenue query draft</h2>
+      </div>
+      <div class="qb-preview__actions" aria-label="Preview mode">
+        @for (mode of previewModes; track mode) {
+          <button
+            class="qb-mode-button"
+            type="button"
+            [class.qb-mode-button--active]="previewMode() === mode"
+            [attr.aria-pressed]="previewMode() === mode"
+            (click)="selectPreviewMode(mode)"
+          >
+            {{ mode }}
+          </button>
+        }
+      </div>
+    </header>
+
+    <div class="qb-preview__surface">
+      @if (previewMode() === 'empty') {
+        <div class="qb-empty">
+          <span class="qb-empty__mark" aria-hidden="true"></span>
+          <h3>No preview requested</h3>
+          <p>The shell can represent an empty preview state without pretending to execute a query.</p>
+        </div>
+      } @else if (previewMode() === 'sql') {
+        <pre class="qb-sql"><code>{{ previewSql }}</code></pre>
+      } @else {
+        <div class="qb-table" role="table" aria-label="Revenue preview rows">
+          <div class="qb-table__row qb-table__row--head" role="row">
+            <span role="columnheader">Date</span>
+            <span role="columnheader">Segment</span>
+            <span role="columnheader">Region</span>
+            <span role="columnheader">Revenue</span>
+            <span role="columnheader">Margin</span>
+            <span role="columnheader">Status</span>
+          </div>
+          @for (row of previewRows; track row[0]) {
+            <div class="qb-table__row" role="row">
+              @for (cell of row; track cell) {
+                <span role="cell">{{ cell }}</span>
+              }
+            </div>
+          }
+        </div>
+      }
+    </div>
+  </main>
+</section>

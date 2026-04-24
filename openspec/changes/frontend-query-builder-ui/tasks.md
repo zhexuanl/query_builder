@@ -14,12 +14,12 @@
 
 ## 4. Shell Components
 
-- [ ] 4.1 Implement `QueryBuilderComponent` as the only exported shell component
-- [ ] 4.2 Implement the split-panel layout with the business-language builder sections: `Start with`, `Add related data`, `Choose columns`, `Filter rows`, `Parameters`, `Sort & Limit`
-- [ ] 4.3 Implement preview pane shell states for `empty`, `data`, and `sql` using local UI state only
+- [x] 4.1 Implement `QueryBuilderComponent` as the only exported shell component
+- [x] 4.2 Implement the split-panel layout with the business-language builder sections: `Start with`, `Add related data`, `Choose columns`, `Filter rows`, `Parameters`, `Sort & Limit`
+- [x] 4.3 Implement preview pane shell states for `empty`, `data`, and `sql` using local UI state only
 
 ## 5. Demo And Verification
 
-- [ ] 5.1 Build the demo app to render `<qb-query-builder>` and exercise section expansion plus preview state switching
-- [ ] 5.2 Run automated verification: `ng test query-builder-ui --watch=false`, `ng build query-builder-ui`, and `ng build demo`
-- [ ] 5.3 Run local verification: `ng serve demo` plus manual browser checks for shell layout, section expansion, preview state switching, and theme behavior
+- [x] 5.1 Build the demo app to render `<qb-query-builder>` and exercise section expansion plus preview state switching
+- [x] 5.2 Run automated verification: `ng test query-builder-ui --watch=false`, `ng build query-builder-ui`, and `ng build demo`
+- [x] 5.3 Run local verification: `ng serve demo` plus manual browser checks for shell layout, section expansion, preview state switching, and theme behavior
